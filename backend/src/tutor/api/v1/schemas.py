@@ -14,7 +14,7 @@ MAX_USER_TEXT_LENGTH = 1000
 class ScenarioOut(BaseModel):
     id: str
     title: str
-    learner_goal: str
+    description: str
 
 
 class StartSessionRequest(BaseModel):
@@ -28,6 +28,7 @@ class StartSessionResponse(BaseModel):
     cefr_level: CefrLevel
     opening: str
     opening_message_id: uuid.UUID
+    max_turns: int  # maximale Zahl eigener Beiträge (FR-4), für die Fortschrittsanzeige
 
 
 class TurnRequest(BaseModel):

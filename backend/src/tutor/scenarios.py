@@ -10,7 +10,8 @@ from tutor.errors import UnknownScenarioError
 class Scenario:
     id: str
     title: str
-    partner_role: str
+    description: str  # für die Oberfläche, an den Lernenden gerichtet
+    partner_role: str  # ab hier: nur für den Systemprompt
     learner_goal: str
     # Themengrenze für den Systemprompt (FR-4, NFR-2)
     topic_boundary: str = "Bleibe beim Szenario und lenke freundlich dorthin zurück."
@@ -23,6 +24,7 @@ _SCENARIOS: Final[tuple[Scenario, ...]] = (
     Scenario(
         id=FREE_SCENARIO_ID,
         title="Freies Gespräch",
+        description="Sprich über ein Thema deiner Wahl oder lass dir eins vorschlagen.",
         partner_role=(
             "Lucía, eine freundliche, neugierige Spanierin aus Madrid, die sich gern unterhält"
         ),
@@ -38,30 +40,35 @@ _SCENARIOS: Final[tuple[Scenario, ...]] = (
     Scenario(
         id="cafe",
         title="Im Café bestellen",
+        description="Bestell Getränke und etwas zu essen und frag nach der Rechnung.",
         partner_role="Kellner oder Kellnerin in einem Café in Madrid",
         learner_goal="Getränke und etwas zu essen bestellen und nach der Rechnung fragen",
     ),
     Scenario(
         id="arzt",
         title="Beim Arzt",
+        description="Vereinbare einen Termin und beschreib kurz, was dir fehlt.",
         partner_role="Mitarbeiter an der Anmeldung einer Arztpraxis in Valencia",
         learner_goal="Einen Termin vereinbaren und kurz beschreiben, was einem fehlt",
     ),
     Scenario(
         id="wohnung",
         title="Wohnungssuche",
+        description="Frag nach Miete, Lage, Ausstattung und einem Besichtigungstermin.",
         partner_role="Vermieter einer Wohnung in Barcelona, der am Telefon Fragen beantwortet",
         learner_goal="Nach Miete, Lage, Ausstattung und Besichtigungstermin fragen",
     ),
     Scenario(
         id="restaurant",
         title="Im Restaurant",
+        description="Reservier einen Tisch, bestell und nenn besondere Wünsche.",
         partner_role="Kellner in einem Restaurant in Sevilla",
         learner_goal="Einen Tisch reservieren, bestellen und besondere Wünsche nennen",
     ),
     Scenario(
         id="einkaufen",
         title="Einkaufen",
+        description="Frag nach Größen, Farben und Preisen und probier etwas an.",
         partner_role="Verkäuferin in einem Bekleidungsgeschäft in Málaga",
         learner_goal="Nach Größen, Farben und Preisen fragen und etwas anprobieren",
     ),

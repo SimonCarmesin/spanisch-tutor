@@ -2,9 +2,10 @@
 
 Agentenbasierte Spanisch-Lern-App mit Fokus auf **Sprechen im Alltag**. Die App führt Sprechgespräche zu Alltagsszenarien, weist bei Fehlern in höchstens zwei Sätzen auf Fehler, Grund und richtige Form hin und trainiert gezielt die Schwächen des Lernenden. Zugleich ist sie ein Praxisprojekt für LLM-Anwendungen, MCP, Evals, Gateway, Docker und Kubernetes.
 
-## Funktionen (geplant)
+## Funktionen
 
-- **Gespräch ("Telefonieren")** zu Alltagsszenarien, zunächst nur mit Audio
+- **Gespräch** frei oder zu Alltagsszenarien, mit Übersetzung auf Abruf (Text, später Audio)
+- **Satztrainer**: ganze Sätze Deutsch ↔ Spanisch, Hilfestufen, eigene Fehler als Übungsmaterial
 - **Fehlerhinweise** in höchstens zwei Sätzen: was falsch war, warum, wie richtig
 - **Zeitformen-Trainer** mit automatisch geprüften Übungen
 - **Alltagssprache und Wortschatz** im Kontext, mit Wiederholungsplan aus den eigenen Fehlern
@@ -25,8 +26,21 @@ Agentenbasierte Spanisch-Lern-App mit Fokus auf **Sprechen im Alltag**. Die App 
 
 ## Dokumentation
 
-- [Anforderungen und Architektur](docs/REQUIREMENTS.md)
+- [Anforderungen](docs/REQUIREMENTS.md)
+- [Architektur und Plan](docs/ARCHITECTURE.md)
+
+## Schnellstart
+
+```bash
+make env            # fehlende Werte in .env ergänzen (AI_HUB_* selbst eintragen)
+make up             # Postgres, Gateway, Migrationen und Backend starten
+make frontend       # App unter http://localhost:5173 öffnen
+```
+
+In der App unter **Einstellungen** das `TUTOR_API_TOKEN` aus der `.env` eintragen.
+
+**Aufs Handy (im selben WLAN):** `make frontend-phone` starten, dann auf dem Handy `http://<IP-des-Macs>:5173` öffnen. Die IP zeigt `ipconfig getifaddr en0`. Die Installation als App („Zum Home-Bildschirm“) mit Offline-Hülle braucht HTTPS; das kommt mit dem Deployment in Etappe 5.
 
 ## Status
 
-Planung. Etappe 1 (Text-Tutor mit Gateway, Datenbank und Docker Compose) steht als Nächstes an. Offene Entscheidungen stehen in Abschnitt 10 der Anforderungen.
+Etappe 1 (Text-Tutor) läuft mit dem AI Hub. Frontend mit Gesprächsbildschirm ist vorgezogen. Als Nächstes: Satztrainer (FR-23 ff.) und Eval-Set. Details im [Plan](docs/ARCHITECTURE.md#6-plan).

@@ -18,7 +18,7 @@ Frontend (PWA) ──► backend (FastAPI) ──► litellm (Gateway) ──►
 | `postgres` | 5432 (nur lokal) | Lerndaten, später Grammatikwissen als Vektoren | PostgreSQL 17 mit pgvector | 1 |
 | `migrate` | – | Einmaliger Job: Datenbankmigrationen | Alembic (Image des Backends) | 1 |
 | `mcp-learner` | 8001 | Tools für Fehlerlog, Vokabeln, Lernplan, gedacht für den Agenten | Python, FastMCP | 2 |
-| `frontend` | 5173 / 80 | PWA, Mikrofon, Anzeige der Hinweise | React, TypeScript | 3 bis 4 |
+| `frontend` | 5173 / 80 | PWA: Karte, Gespräch mit Korrekturen und Übersetzung, Einstellungen; Trainer und Fehler folgen | React, TypeScript, Vite | 3 (vorgezogen), Mikrofon in 4 |
 | `langfuse` | 3000 | Tracing und Kosten der Modellaufrufe | Langfuse | 2 bis 5 |
 | Sprach-Dienste | – | Sprache zu Text, Text zu Sprache | offen (O-3) | 4 |
 
@@ -52,6 +52,15 @@ Zwölf-Faktoren-Konfiguration. Lokal liegt alles in der `.env` (ignoriert, Vorla
 
 **Begründung:** Eine Übersetzung in jeder Antwort würde jeden Beitrag teurer und langsamer machen (Latenz ist bereits knapp, siehe O-5) und sie würde sofort sichtbar das eigene Verstehen vorwegnehmen. Auf Abruf zahlt man nur, wenn man sie braucht. Gespeichert wird sie, damit ein zweiter Abruf ohne Modellaufruf auskommt. Der eigene Alias erlaubt später ein kleineres, schnelleres Modell nur für Übersetzungen, ohne Codeänderung. Zwei gleichzeitige erste Abrufe lösen zwei Modellaufrufe aus; das wird bewusst hingenommen (seltener Fall, Ergebnis bleibt korrekt).
 
+### ADR-8: Frontend als PWA mit generierten API-Typen und Vite-Proxy
+**Entscheidung:** React mit TypeScript und Vite, als PWA (vite-plugin-pwa). Die TypeScript-Typen der API werden aus dem OpenAPI-Schema des Backends erzeugt (`make api-types`), die CI prüft, dass sie aktuell sind. In der Entwicklung leitet der Vite-Server `/api` an das Backend weiter. Der Zustand eines Gesprächs ist ein reiner Reducer und wird im Gerät gespeichert.
+
+**Begründung:**
+- Eine Quelle der Wahrheit für die Schnittstelle: Ändert sich das Backend, bricht der Typecheck des Frontends statt der App zur Laufzeit.
+- Der Proxy macht Frontend und API für den Browser zur selben Origin (kein CORS) und erlaubt dem Handy im WLAN, über den Vite-Server zu arbeiten. Produktiv übernimmt das der Ingress.
+- Ein reiner Reducer ist ohne React und Netz testbar. Das Speichern im Gerät verhindert, dass ein Gespräch verloren geht, wenn das Handy die App im Hintergrund beendet (FR-21).
+- TypeScript bleibt bei Version 6, weil Werkzeuge wie openapi-typescript den nativen Compiler (Version 7) noch nicht unterstützen.
+
 ## 3. Aufbau des Backends
 
 ```
@@ -69,6 +78,18 @@ backend/
   tests/               Unit- und API-Tests
 ```
 Abhängigkeitsrichtung: `api` → `services` → (`db`, `llm`). Services hängen vom Schnittstellentyp `LLMClient` ab, nicht von der konkreten Implementierung, und lassen sich so ohne Netz testen.
+
+### Aufbau des Frontends
+
+```
+frontend/
+  src/
+    api/               client.ts (einzige Stelle mit fetch), schema.d.ts (generiert)
+    conversation/      state.ts (Reducer), useConversation.ts (API und Speicherung)
+    screens/           Karte, Gespräch, Einstellungen, Platzhalter
+    components/        Navigation, Avatar, Korrekturkarte, Icons
+  public/              Icons und Manifest-Grafiken der PWA
+```
 
 ## 4. API (Etappe 1)
 
