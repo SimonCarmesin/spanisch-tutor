@@ -27,6 +27,7 @@ class StartSessionResponse(BaseModel):
     scenario: ScenarioOut
     cefr_level: CefrLevel
     opening: str
+    opening_message_id: uuid.UUID
 
 
 class TurnRequest(BaseModel):
@@ -46,7 +47,21 @@ class CorrectionOut(BaseModel):
 
 class TurnResponse(BaseModel):
     reply: str
+    reply_message_id: uuid.UUID
     corrections: list[CorrectionOut]
+
+
+class KeywordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    spanish: str
+    german: str
+
+
+class TranslationResponse(BaseModel):
+    translation: str
+    keywords: list[KeywordOut]
+    cached: bool  # True, wenn die Übersetzung aus der Datenbank kam (kein Modellaufruf)
 
 
 class CategoryCountOut(BaseModel):

@@ -87,3 +87,41 @@ class TutorTurn(BaseModel):
         if len(value) > MAX_CORRECTIONS_PER_TURN:
             raise ValueError(f"Höchstens {MAX_CORRECTIONS_PER_TURN} Korrekturen pro Beitrag")
         return value
+
+
+MAX_KEYWORDS = 3
+
+
+class Keyword(BaseModel):
+    spanish: str = Field(description="Spanisches Wort oder Wendung aus dem Text")
+    german: str = Field(description="Deutsche Bedeutung im Kontext des Textes")
+
+    @field_validator("spanish", "german")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("darf nicht leer sein")
+        return value
+
+
+class Translation(BaseModel):
+    translation: str = Field(description="Natürliche deutsche Übersetzung des ganzen Textes")
+    keywords: list[Keyword] = Field(
+        description="Bis zu drei Wörter, die für das Niveau des Lernenden neu sein dürften"
+    )
+
+    @field_validator("translation")
+    @classmethod
+    def _translation_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Die Übersetzung darf nicht leer sein")
+        return value
+
+    @field_validator("keywords")
+    @classmethod
+    def _not_too_many_keywords(cls, value: list[Keyword]) -> list[Keyword]:
+        if len(value) > MAX_KEYWORDS:
+            raise ValueError(f"Höchstens {MAX_KEYWORDS} Schlüsselwörter")
+        return value

@@ -9,10 +9,11 @@ import openai
 import structlog
 from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from openai.types.chat import ChatCompletionMessageParam
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from tutor.errors import LLMOutputError, LLMRateLimitError, LLMUnavailableError
-from tutor.llm.schemas import TutorTurn
+from tutor.llm.prompts import wrap_untrusted
+from tutor.llm.schemas import Translation, TutorTurn
 
 log = structlog.get_logger()
 
@@ -51,6 +52,8 @@ class LLMClient(Protocol):
         self, *, system_prompt: str, messages: Sequence[ChatMessage]
     ) -> TutorTurn: ...
 
+    async def translate(self, *, system_prompt: str, text: str) -> Translation: ...
+
     async def aclose(self) -> None: ...
 
 
@@ -63,9 +66,11 @@ class OpenAICompatibleClient:
         model: str,
         timeout_seconds: float,
         max_retries: int,
+        translation_model: str,
         http_client: DefaultAsyncHttpxClient | None = None,
     ) -> None:
         self._model = model
+        self._translation_model = translation_model
         self._client = AsyncOpenAI(
             base_url=f"{base_url.rstrip('/')}/v1",
             api_key=api_key,
@@ -81,6 +86,29 @@ class OpenAICompatibleClient:
             {"role": "system", "content": system_prompt},
             *(_to_param(m) for m in messages),
         ]
+        return await self._structured_call(
+            model=self._model, payload=payload, schema=TutorTurn, temperature=0.7
+        )
+
+    async def translate(self, *, system_prompt: str, text: str) -> Translation:
+        payload: list[ChatCompletionMessageParam] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": wrap_untrusted(text)},
+        ]
+        # Niedrige Temperatur: Übersetzungen sollen reproduzierbar sein, nicht kreativ
+        return await self._structured_call(
+            model=self._translation_model, payload=payload, schema=Translation, temperature=0.2
+        )
+
+    async def _structured_call[T: BaseModel](
+        self,
+        *,
+        model: str,
+        payload: list[ChatCompletionMessageParam],
+        schema: type[T],
+        temperature: float,
+    ) -> T:
+        """Ein Aufruf mit Schema-Prüfung und genau einem Wiederholungsversuch (ADR-3)."""
         last_problem = ""
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             started = time.perf_counter()
@@ -88,10 +116,10 @@ class OpenAICompatibleClient:
                 # with_raw_response: Bei ungültiger Ausgabe brauchen wir den Rohtext,
                 # damit das Modell im Wiederholungsversuch sieht, was es falsch gemacht hat.
                 raw = await self._client.chat.completions.with_raw_response.parse(
-                    model=self._model,
+                    model=model,
                     messages=payload,
-                    response_format=TutorTurn,
-                    temperature=0.7,
+                    response_format=schema,
+                    temperature=temperature,
                 )
                 completion = raw.parse()
             except ValidationError as exc:
@@ -136,7 +164,7 @@ class OpenAICompatibleClient:
             usage = completion.usage
             log.info(
                 "llm_call",
-                model=self._model,
+                model=model,
                 attempt=attempt,
                 latency_ms=round((time.perf_counter() - started) * 1000),
                 prompt_tokens=usage.prompt_tokens if usage else None,

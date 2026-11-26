@@ -30,6 +30,7 @@ def create_app(settings: Settings | None = None, llm_client: LLMClient | None = 
             base_url=settings.llm_base_url,
             api_key=settings.llm_api_key.get_secret_value(),
             model=settings.llm_model,
+            translation_model=settings.llm_translation_model,
             timeout_seconds=settings.llm_timeout_seconds,
             max_retries=settings.llm_max_retries,
         )

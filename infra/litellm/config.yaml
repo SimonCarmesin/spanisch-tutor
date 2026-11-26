@@ -8,6 +8,13 @@ model_list:
       api_base: os.environ/AI_HUB_BASE_URL
       api_key: os.environ/AI_HUB_API_KEY
 
+  # Eigener Alias für Übersetzungen: einfachere Aufgabe, später ggf. kleineres Modell
+  - model_name: tutor-translate
+    litellm_params:
+      model: openai/gemini-3.5-flash
+      api_base: os.environ/AI_HUB_BASE_URL
+      api_key: os.environ/AI_HUB_API_KEY
+
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
 

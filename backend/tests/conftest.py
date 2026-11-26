@@ -16,7 +16,7 @@ from tutor.db.base import Base
 from tutor.db.session import create_engine, create_session_factory
 from tutor.domain import ErrorCategory
 from tutor.llm.client import ChatMessage
-from tutor.llm.schemas import Correction, TutorTurn
+from tutor.llm.schemas import Correction, Keyword, Translation, TutorTurn
 from tutor.main import create_app
 
 API_TOKEN = "t" * 32
@@ -40,6 +40,16 @@ def make_correction(
     )
 
 
+def make_translation(
+    translation: str = "Hallo! Was möchtest du trinken?",
+    *keywords: tuple[str, str],
+) -> Translation:
+    return Translation(
+        translation=translation,
+        keywords=[Keyword(spanish=es, german=de) for es, de in keywords],
+    )
+
+
 class FakeLLM:
     """Ersetzt das Sprachmodell: liefert vorbereitete Antworten, wirft vorbereitete Fehler."""
 
@@ -47,6 +57,8 @@ class FakeLLM:
         self._items = list(items) or [make_turn()]
         self.calls: list[tuple[str, list[ChatMessage]]] = []
         self.before_return: Callable[[], Awaitable[None]] | None = None
+        self.translation: Translation | Exception = make_translation()
+        self.translate_calls: list[tuple[str, str]] = []
 
     def script(self, *items: TutorTurn | Exception) -> None:
         """Legt fest, was die nächsten Aufrufe liefern (das letzte Element wiederholt sich)."""
@@ -62,6 +74,12 @@ class FakeLLM:
         if isinstance(item, Exception):
             raise item
         return item
+
+    async def translate(self, *, system_prompt: str, text: str) -> Translation:
+        self.translate_calls.append((system_prompt, text))
+        if isinstance(self.translation, Exception):
+            raise self.translation
+        return self.translation
 
     async def aclose(self) -> None:
         return None

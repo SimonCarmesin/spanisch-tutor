@@ -1,7 +1,9 @@
+import uuid
+
 import httpx
 import pytest
 
-from tests.conftest import FakeLLM, make_correction, make_turn
+from tests.conftest import FakeLLM, make_correction, make_translation, make_turn
 from tutor.errors import LLMRateLimitError, LLMUnavailableError
 
 
@@ -188,3 +190,74 @@ async def test_session_without_scenario_starts_free_conversation(
 async def test_free_conversation_is_listed_first(client: httpx.AsyncClient) -> None:
     scenarios = (await client.get("/api/v1/scenarios")).json()
     assert scenarios[0]["id"] == "frei"
+
+
+async def test_translation_of_partner_message_is_cached(
+    client: httpx.AsyncClient, fake_llm: FakeLLM
+) -> None:
+    fake_llm.script(make_turn("¡Hola! ¿Qué desea tomar?"))
+    fake_llm.translation = make_translation("Hallo! Was möchtest du trinken?", ("tomar", "trinken"))
+    started = (await client.post("/api/v1/sessions", json={})).json()
+    url = (
+        f"/api/v1/sessions/{started['session_id']}"
+        f"/messages/{started['opening_message_id']}/translation"
+    )
+
+    first = await client.post(url)
+    second = await client.post(url)
+
+    assert first.status_code == 200
+    assert first.json() == {
+        "translation": "Hallo! Was möchtest du trinken?",
+        "keywords": [{"spanish": "tomar", "german": "trinken"}],
+        "cached": False,
+    }
+    assert second.json() == {**first.json(), "cached": True}
+    assert len(fake_llm.translate_calls) == 1  # zweiter Abruf ohne Modellaufruf
+    system_prompt, text = fake_llm.translate_calls[0]
+    assert text == "¡Hola! ¿Qué desea tomar?"
+    assert "A1" in system_prompt  # Niveau des Gesprächs bestimmt die Schlüsselwörter
+
+
+async def test_reply_of_a_turn_can_be_translated(
+    client: httpx.AsyncClient, fake_llm: FakeLLM
+) -> None:
+    fake_llm.script(make_turn("¡Hola!"), make_turn("¿Con leche?"))
+    session_id = await start(client)
+    turn = (
+        await client.post(f"/api/v1/sessions/{session_id}/turns", json={"text": "Un café."})
+    ).json()
+
+    response = await client.post(
+        f"/api/v1/sessions/{session_id}/messages/{turn['reply_message_id']}/translation"
+    )
+
+    assert response.status_code == 200
+    assert fake_llm.translate_calls[0][1] == "¿Con leche?"
+
+
+async def test_unknown_message_is_not_found(client: httpx.AsyncClient, fake_llm: FakeLLM) -> None:
+    # Dass eigene Beiträge nicht übersetzt werden, prüft der Service-Test (braucht die Datenbank-ID)
+    session_id = await start(client)
+
+    response = await client.post(
+        f"/api/v1/sessions/{session_id}/messages/{uuid.uuid4()}/translation"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "message_not_found"
+    assert fake_llm.translate_calls == []
+
+
+async def test_message_of_other_session_is_not_found(
+    client: httpx.AsyncClient, fake_llm: FakeLLM
+) -> None:
+    first = (await client.post("/api/v1/sessions", json={})).json()
+    other_session = await start(client)
+
+    response = await client.post(
+        f"/api/v1/sessions/{other_session}/messages/{first['opening_message_id']}/translation"
+    )
+
+    assert response.status_code == 404
+    assert fake_llm.translate_calls == []
