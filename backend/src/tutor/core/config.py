@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     llm_base_url: str
     llm_api_key: SecretStr
     llm_model: str = "tutor"
+    llm_translation_model: str = "tutor-translate"  # eigener Alias im Gateway (ADR-2)
     llm_timeout_seconds: float = 60.0
     llm_max_retries: int = 2
 

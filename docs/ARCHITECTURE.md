@@ -47,10 +47,10 @@ Datenbankmigrationen laufen als getrennter Job (`migrate`) und nicht beim Start 
 ### ADR-6: Konfiguration über Umgebungsvariablen, Geheimnisse nie im Repository
 Zwölf-Faktoren-Konfiguration. Lokal liegt alles in der `.env` (ignoriert, Vorlage in `.env.example`), im Cluster kommen Geheimnisse aus Kubernetes-Secrets.
 
-### ADR-7: Übersetzung auf Abruf statt in jedem Beitrag (geplant)
-**Entscheidung:** Die Übersetzung (FR-22) ist ein eigener Endpunkt mit eigenem, kleinem Modellaufruf. Das Ergebnis wird am Beitrag gespeichert.
+### ADR-7: Übersetzung auf Abruf statt in jedem Beitrag
+**Entscheidung:** Die Übersetzung (FR-22) ist ein eigener Endpunkt mit eigenem Modellaufruf über den Alias `tutor-translate`. Das Ergebnis wird am Beitrag gespeichert (`message.translation`, `message.translation_keywords`).
 
-**Begründung:** Eine Übersetzung in jeder Antwort würde jeden Beitrag teurer und langsamer machen (Latenz ist bereits knapp, siehe O-5) und sie würde sofort sichtbar das eigene Verstehen vorwegnehmen. Auf Abruf zahlt man nur, wenn man sie braucht. Gespeichert wird sie, damit ein zweiter Abruf ohne Modellaufruf auskommt.
+**Begründung:** Eine Übersetzung in jeder Antwort würde jeden Beitrag teurer und langsamer machen (Latenz ist bereits knapp, siehe O-5) und sie würde sofort sichtbar das eigene Verstehen vorwegnehmen. Auf Abruf zahlt man nur, wenn man sie braucht. Gespeichert wird sie, damit ein zweiter Abruf ohne Modellaufruf auskommt. Der eigene Alias erlaubt später ein kleineres, schnelleres Modell nur für Übersetzungen, ohne Codeänderung. Zwei gleichzeitige erste Abrufe lösen zwei Modellaufrufe aus; das wird bewusst hingenommen (seltener Fall, Ergebnis bleibt korrekt).
 
 ## 3. Aufbau des Backends
 
@@ -80,7 +80,7 @@ Abhängigkeitsrichtung: `api` → `services` → (`db`, `llm`). Services hängen
 | `POST /api/v1/sessions/{id}/turns` | Eigenen Beitrag senden, liefert Antwort und Korrekturen |
 | `POST /api/v1/sessions/{id}/end` | Gespräch beenden, liefert die Auswertung |
 | `GET /api/v1/profile`, `PATCH /api/v1/profile` | Niveau und Einstellungen |
-| `POST /api/v1/sessions/{id}/messages/{position}/translation` | geplant (FR-22): Übersetzung eines Beitrags der Gegenseite ins Deutsche |
+| `POST /api/v1/sessions/{id}/messages/{message_id}/translation` | Übersetzung eines Beitrags der Gegenseite ins Deutsche (FR-22). Die IDs liefern `opening_message_id` und `reply_message_id` |
 
 Authentifizierung: statisches Bearer-Token aus der Umgebung (Einzelnutzer). Ein richtiges Anmeldeverfahren ist bei Mehrbenutzerbetrieb vorgesehen.
 
@@ -98,7 +98,7 @@ Authentifizierung: statisches Bearer-Token aus der Umgebung (Einzelnutzer). Ein 
 
 | Etappe | Inhalt | Status |
 |---|---|---|
-| **1** | Text-Tutor: Backend, Gateway, Datenbank, Compose, Korrekturformat, Tests, CI | Code und 53 Tests fertig; Compose, Gateway und CI noch ungetestet |
+| **1** | Text-Tutor: Backend, Gateway, Datenbank, Compose, Korrekturformat, Tests, CI | fertig: 64 Tests, Compose und Gateway mit dem AI Hub getestet (2026-11-26), freies Gespräch, Übersetzung (FR-22); CI läuft beim ersten Pull Request |
 | 1b | Eval-Set für das Korrekturformat und erste Qualitätsmetriken | offen |
 | **2** | Lerngedächtnis: Fehlerlog auswerten, Learner-MCP-Server, Grammatik-RAG, Niveauberechnung, Langfuse | offen |
 | **3** | Zeitformen-Trainer, Lernplan-Agent, Frontend (PWA) | offen |

@@ -27,6 +27,16 @@ class ConcurrentTurnError(TutorError):
     code = "concurrent_turn"
 
 
+class MessageNotFoundError(TutorError):
+    code = "message_not_found"
+
+
+class MessageNotTranslatableError(TutorError):
+    """Übersetzt werden nur Beiträge der Gegenseite, nicht die eigenen."""
+
+    code = "message_not_translatable"
+
+
 class LLMError(TutorError):
     """Basis der Fehler beim Aufruf des Sprachmodells."""
 

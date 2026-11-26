@@ -12,6 +12,7 @@ from tutor.domain import CefrLevel, ErrorCategory, Role
 from tutor.errors import (
     ConcurrentTurnError,
     LLMUnavailableError,
+    MessageNotTranslatableError,
     SessionClosedError,
     SessionNotFoundError,
     TurnLimitReachedError,
@@ -250,3 +251,38 @@ async def test_end_session_summarizes_and_is_idempotent(
         (ErrorCategory.PRETERITO_INDEFINIDO, 1),
     ]
     assert again == summary
+
+
+async def test_own_message_cannot_be_translated(
+    db_session: AsyncSession, settings: Settings
+) -> None:
+    llm = FakeLLM(make_turn("Hola"), make_turn("Bien"))
+    service = make_service(db_session, llm, settings)
+    started = await service.start_session(user_id=USER, scenario_id="cafe", cefr_level=None)
+    await service.take_turn(user_id=USER, session_id=started.session_id, text="Un café.")
+    own = await db_session.scalar(select(Message).where(Message.role == Role.USER.value))
+    assert own is not None
+
+    with pytest.raises(MessageNotTranslatableError):
+        await service.translate_message(
+            user_id=USER, session_id=started.session_id, message_id=own.id
+        )
+    assert llm.translate_calls == []
+
+
+async def test_failed_translation_stores_nothing(
+    db_session: AsyncSession, settings: Settings
+) -> None:
+    llm = FakeLLM(make_turn("Hola"))
+    service = make_service(db_session, llm, settings)
+    started = await service.start_session(user_id=USER, scenario_id="cafe", cefr_level=None)
+    llm.translation = LLMUnavailableError("weg")
+
+    with pytest.raises(LLMUnavailableError):
+        await service.translate_message(
+            user_id=USER, session_id=started.session_id, message_id=started.opening_message_id
+        )
+
+    opening = await db_session.get(Message, started.opening_message_id, populate_existing=True)
+    assert opening is not None
+    assert opening.translation is None  # nächster Versuch ruft das Modell erneut auf

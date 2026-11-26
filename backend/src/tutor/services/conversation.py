@@ -17,13 +17,15 @@ from tutor.db.models import ErrorLog, Message, TutorSession
 from tutor.domain import CefrLevel, ErrorCategory, Role
 from tutor.errors import (
     ConcurrentTurnError,
+    MessageNotFoundError,
+    MessageNotTranslatableError,
     SessionClosedError,
     SessionNotFoundError,
     TurnLimitReachedError,
 )
 from tutor.llm.client import ChatMessage, LLMClient
-from tutor.llm.prompts import OPENING_USER_MESSAGE, build_system_prompt
-from tutor.llm.schemas import Correction
+from tutor.llm.prompts import OPENING_USER_MESSAGE, build_system_prompt, build_translation_prompt
+from tutor.llm.schemas import Correction, Keyword
 from tutor.scenarios import Scenario, get_scenario
 from tutor.services.profile import get_or_create_profile
 
@@ -34,12 +36,21 @@ class StartedSession:
     scenario: Scenario
     cefr_level: CefrLevel
     opening: str
+    opening_message_id: uuid.UUID
 
 
 @dataclass(frozen=True, slots=True)
 class TurnOutcome:
     reply: str
+    reply_message_id: uuid.UUID
     corrections: list[Correction]
+
+
+@dataclass(frozen=True, slots=True)
+class TranslationOutcome:
+    translation: str
+    keywords: list[Keyword]
+    cached: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,8 +108,10 @@ class ConversationService:
             id=uuid.uuid4(), user_id=user_id, scenario=scenario.id, cefr_level=level.value
         )
         self._session.add(tutor_session)
+        opening_message_id = uuid.uuid4()
         self._session.add(
             Message(
+                id=opening_message_id,
                 session_id=tutor_session.id,
                 position=0,
                 role=Role.ASSISTANT.value,
@@ -107,7 +120,11 @@ class ConversationService:
         )
         await self._session.commit()
         return StartedSession(
-            session_id=tutor_session.id, scenario=scenario, cefr_level=level, opening=turn.reply
+            session_id=tutor_session.id,
+            scenario=scenario,
+            cefr_level=level,
+            opening=turn.reply,
+            opening_message_id=opening_message_id,
         )
 
     async def take_turn(self, *, user_id: str, session_id: uuid.UUID, text: str) -> TurnOutcome:
@@ -135,8 +152,10 @@ class ConversationService:
             content=text,
         )
         self._session.add(user_message)
+        reply_message_id = uuid.uuid4()
         self._session.add(
             Message(
+                id=reply_message_id,
                 session_id=session_id,
                 position=total_messages + 1,
                 role=Role.ASSISTANT.value,
@@ -165,7 +184,44 @@ class ConversationService:
                     "Es läuft bereits ein Beitrag in diesem Gespräch"
                 ) from exc
             raise  # andere Verletzungen sind Programmfehler und dürfen nicht verschleiert werden
-        return TurnOutcome(reply=turn.reply, corrections=turn.corrections)
+        return TurnOutcome(
+            reply=turn.reply, reply_message_id=reply_message_id, corrections=turn.corrections
+        )
+
+    async def translate_message(
+        self, *, user_id: str, session_id: uuid.UUID, message_id: uuid.UUID
+    ) -> TranslationOutcome:
+        """Übersetzt einen Beitrag der Gegenseite ins Deutsche (FR-22) und speichert das Ergebnis.
+
+        Auch für beendete Gespräche erlaubt, damit man sie nachträglich durchgehen kann.
+        """
+        tutor_session = await self._get_session(user_id, session_id)
+        message = await self._session.scalar(
+            select(Message).where(Message.id == message_id, Message.session_id == session_id)
+        )
+        if message is None:
+            raise MessageNotFoundError("Nachricht nicht gefunden")
+        if message.role != Role.ASSISTANT.value:
+            raise MessageNotTranslatableError("Übersetzt werden nur Beiträge der Gegenseite")
+        if message.translation is not None:
+            # Bereits übersetzt: kein zweiter Modellaufruf (ADR-7)
+            return TranslationOutcome(
+                translation=message.translation,
+                keywords=[Keyword(**k) for k in message.translation_keywords or []],
+                cached=True,
+            )
+        text = message.content
+        level = CefrLevel(tutor_session.cefr_level)
+        await self._session.commit()  # Lesezugriffe beenden, bevor das Modell aufgerufen wird
+
+        result = await self._llm.translate(system_prompt=build_translation_prompt(level), text=text)
+
+        message.translation = result.translation
+        message.translation_keywords = [k.model_dump() for k in result.keywords]
+        await self._session.commit()
+        return TranslationOutcome(
+            translation=result.translation, keywords=result.keywords, cached=False
+        )
 
     async def end_session(self, *, user_id: str, session_id: uuid.UUID) -> SessionSummary:
         tutor_session = await self._get_session(user_id, session_id)

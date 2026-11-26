@@ -9,6 +9,8 @@ from tutor.errors import (
     LLMOutputError,
     LLMRateLimitError,
     LLMUnavailableError,
+    MessageNotFoundError,
+    MessageNotTranslatableError,
     SessionClosedError,
     SessionNotFoundError,
     TurnLimitReachedError,
@@ -19,6 +21,8 @@ from tutor.errors import (
 _STATUS_BY_ERROR: dict[type[TutorError], int] = {
     UnknownScenarioError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     SessionNotFoundError: status.HTTP_404_NOT_FOUND,
+    MessageNotFoundError: status.HTTP_404_NOT_FOUND,
+    MessageNotTranslatableError: status.HTTP_422_UNPROCESSABLE_CONTENT,
     SessionClosedError: status.HTTP_409_CONFLICT,
     TurnLimitReachedError: status.HTTP_409_CONFLICT,
     ConcurrentTurnError: status.HTTP_409_CONFLICT,

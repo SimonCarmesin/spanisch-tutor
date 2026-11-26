@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -68,6 +69,9 @@ class Message(Base):
     role: Mapped[str] = mapped_column(String(16))
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = _created_at()
+    # Übersetzung auf Abruf (FR-22, ADR-7), nur für Beiträge der Gegenseite
+    translation: Mapped[str | None] = mapped_column(Text, default=None)
+    translation_keywords: Mapped[list[dict[str, str]] | None] = mapped_column(JSON, default=None)
 
     # Die Beziehung sagt SQLAlchemy, dass die Session vor der Nachricht eingefügt werden muss.
     # Ohne sie ist die Reihenfolge innerhalb eines Commits nicht festgelegt.
