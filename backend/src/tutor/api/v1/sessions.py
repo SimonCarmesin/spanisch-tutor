@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, status
 
-from tutor.api.deps import ConversationServiceDep, UserIdDep
+from tutor.api.deps import ConversationServiceDep, SettingsDep, UserIdDep
 from tutor.api.v1.schemas import (
     ScenarioOut,
     StartSessionRequest,
@@ -22,13 +22,16 @@ router = APIRouter(tags=["conversation"])
 @router.get("/scenarios")
 async def list_scenarios() -> list[ScenarioOut]:
     return [
-        ScenarioOut(id=s.id, title=s.title, learner_goal=s.learner_goal) for s in SCENARIOS.values()
+        ScenarioOut(id=s.id, title=s.title, description=s.description) for s in SCENARIOS.values()
     ]
 
 
 @router.post("/sessions", status_code=status.HTTP_201_CREATED)
 async def start_session(
-    body: StartSessionRequest, service: ConversationServiceDep, user_id: UserIdDep
+    body: StartSessionRequest,
+    service: ConversationServiceDep,
+    user_id: UserIdDep,
+    settings: SettingsDep,
 ) -> StartSessionResponse:
     started = await service.start_session(
         user_id=user_id, scenario_id=body.scenario, cefr_level=body.cefr_level
@@ -38,11 +41,12 @@ async def start_session(
         scenario=ScenarioOut(
             id=started.scenario.id,
             title=started.scenario.title,
-            learner_goal=started.scenario.learner_goal,
+            description=started.scenario.description,
         ),
         cefr_level=started.cefr_level,
         opening=started.opening,
         opening_message_id=started.opening_message_id,
+        max_turns=settings.max_turns_per_session,
     )
 
 

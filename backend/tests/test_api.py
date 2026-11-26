@@ -5,6 +5,7 @@ import pytest
 
 from tests.conftest import FakeLLM, make_correction, make_translation, make_turn
 from tutor.errors import LLMRateLimitError, LLMUnavailableError
+from tutor.scenarios import SCENARIOS
 
 
 async def start(client: httpx.AsyncClient, **body: object) -> str:
@@ -53,6 +54,7 @@ async def test_full_conversation_flow(client: httpx.AsyncClient, fake_llm: FakeL
     assert body["opening"] == "¡Hola! ¿Qué desea?"
     assert body["cefr_level"] == "A2"
     assert body["scenario"]["id"] == "cafe"
+    assert body["max_turns"] == 3  # aus der Testkonfiguration
     session_id = body["session_id"]
 
     turn = await client.post(
@@ -261,3 +263,14 @@ async def test_message_of_other_session_is_not_found(
 
     assert response.status_code == 404
     assert fake_llm.translate_calls == []
+
+
+async def test_scenario_descriptions_are_for_humans_not_for_the_model(
+    client: httpx.AsyncClient,
+) -> None:
+    """Prompt-Text (Anweisungen ans Modell) darf nicht in der Oberfläche landen."""
+    for scenario in (await client.get("/api/v1/scenarios")).json():
+        assert set(scenario) == {"id", "title", "description"}
+        internal = SCENARIOS[scenario["id"]]
+        prompt_texts = (internal.partner_role, internal.learner_goal, internal.topic_boundary)
+        assert scenario["description"] not in prompt_texts

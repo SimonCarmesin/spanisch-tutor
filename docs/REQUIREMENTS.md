@@ -59,9 +59,21 @@ Beispiel für das Datenformat eines Hinweises:
 - **FR-18** Die App kennt meine Schwächen (häufige Fehlerkategorien) und gewichtet damit Übungen und Gesprächsthemen.
 
 ### 3.7 Frontend
-- **FR-19** Webanwendung als **PWA**: auf dem Handy installierbar, Mikrofonzugriff, für Touch-Bedienung ausgelegt.
+- **FR-19** Webanwendung als **PWA**: auf dem Handy installierbar, Mikrofonzugriff, für Touch-Bedienung ausgelegt. **Hauptgerät ist das Smartphone**: Das Layout wird zuerst für schmale Bildschirme entworfen, große Bildschirme sind zweitrangig. Für die Nutzung unterwegs muss das Backend aus dem Internet erreichbar sein (Etappe 5); bis dahin im Heimnetz.
 - **FR-20** Bildschirme: Start (Empfehlung des Lernplans), Gespräch, Übungen, Fehlerübersicht und Verlauf, Einstellungen.
 - **FR-21** Bei schlechtem Netz (zum Beispiel in der Bahn) bricht die App nicht ab: verständliche Meldung, automatischer Wiederaufbau, bereits Gesagtes geht nicht verloren.
+
+### 3.8 Satztrainer und weitere Lerntechniken
+
+Leitidee: Ich lerne ganze Sätze, indem ich sie **selbst bilde**, statt sie wiederzuerkennen. Aktives Abrufen, ein angemessener Schwierigkeitsgrad und Wiederholung im Abstand wirken nachweislich besser als Wiedererkennen (Multiple Choice) und reines Lesen.
+
+- **FR-23 Satz-Übersetzungstrainer:** Die App gibt mir vollständige, natürliche Alltagssätze in meinem Niveau. Ich übersetze sie frei in Richtung **Spanisch → Deutsch** oder **Deutsch → Spanisch** (wählbar, Standard: Deutsch → Spanisch, weil das Sprechen trainiert). Da mehrere Übersetzungen richtig sein können, bewertet ein Modell die Antwort (richtig, fast richtig, falsch) und liefert eine Musterlösung. Fehler bekomme ich im Format aus FR-6, und sie landen im Fehlerlog (FR-9).
+- **FR-24 Rückübersetzung:** Einen Satz, den ich von Spanisch nach Deutsch übersetzt habe, bekomme ich später auf Deutsch zurück und baue daraus wieder den spanischen Satz. Verglichen wird mit dem Original.
+- **FR-25 Hilfestufen statt Lösung (Glühbirne):** Wenn ich nicht weiterkomme, gibt es Hilfe in Stufen: (1) ein Hinweis, etwa die benötigte Zeitform oder ein Schlüsselwort, (2) der Satzanfang, (3) die Lösung. Das gilt im Satztrainer und im Gespräch („Was könnte ich jetzt sagen?“). Genutzte Hilfe fließt in Bewertung und Wiederholungsplan ein.
+- **FR-26 Satzbausteine:** Häufige Satzrahmen (zum Beispiel „Me gustaría …“, „¿Podrías …?“, „Lo que pasa es que …“) werden gezielt geübt, indem ich sie in eigenen Sätzen verwende. Sie gehören zum Wortschatz (FR-13).
+- **FR-27 Eigene Fehler als Übungsmaterial:** Sätze aus meinem Fehlerlog kommen im Satztrainer wieder, nach dem Wiederholungsplan (FR-14). Im Design: „Fehler-Training starten“.
+- **FR-28 Umformen:** Ein Satz soll in eine andere Zeitform oder Person umgeformt werden (zum Beispiel Präsens → pretérito indefinido). Verbindet den Satztrainer mit dem Zeitformen-Trainer (FR-10).
+- **FR-29 Nachsprechen (Shadowing, ab Etappe 4):** Einen Satz anhören und sofort nachsprechen. Das Transkript wird mit dem Original verglichen.
 
 ## 4. Services und Architektur
 
@@ -141,7 +153,7 @@ Entwurfsentscheidungen:
 
 1. **Text-Tutor:** Tutor-Service, Gateway, Datenbank, Compose, erste Szenarien, Fehlerhinweise im Datenformat, erstes Eval-Set.
 2. **Gedächtnis und Qualität:** Fehlerlog, Learner-MCP-Server, Grammatik-RAG, Niveau-Berechnung, Evals in der CI.
-3. **Zeitformen-Trainer und Lernplan-Agent.**
+3. **Frontend (PWA), Satztrainer (FR-23 bis FR-28), Zeitformen-Trainer und Lernplan-Agent.** Das Frontend wird vorgezogen, damit ich die App früh selbst benutze und echte Fälle für das Eval-Set entstehen.
 4. **Sprache:** Sprachpipeline, Telefon-Modus, mobile Bedienung, Netz-Robustheit.
 5. **Kubernetes, CI/CD, Observability, Guardrails härten.**
 
