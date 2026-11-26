@@ -1,0 +1,17 @@
+# Konfiguration des Modell-Gateways (LiteLLM-Proxy).
+# Das Backend ruft nur den Alias "tutor" auf. Welches Modell dahinter liegt, steht hier.
+# Zugangsdaten kommen aus der Umgebung (.env), nie aus dieser Datei.
+model_list:
+  - model_name: tutor
+    litellm_params:
+      model: openai/gemini-3.5-flash    # OpenAI-kompatibler Endpunkt des AI Hubs
+      api_base: os.environ/AI_HUB_BASE_URL
+      api_key: os.environ/AI_HUB_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+litellm_settings:
+  drop_params: true        # Parameter, die das Modell nicht kennt, weglassen statt Fehler
+  num_retries: 2
+  request_timeout: 60

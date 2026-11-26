@@ -1,0 +1,81 @@
+name: spanisch-tutor
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tutor
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD fehlt in .env, bitte "make env" ausführen}
+      POSTGRES_DB: tutor
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutor -d tutor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      AI_HUB_BASE_URL: ${AI_HUB_BASE_URL:?AI_HUB_BASE_URL fehlt in .env}
+      AI_HUB_API_KEY: ${AI_HUB_API_KEY:?AI_HUB_API_KEY fehlt in .env}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?LITELLM_MASTER_KEY fehlt in .env, bitte "make env" ausführen}
+      DATABASE_URL: postgresql://tutor:${POSTGRES_PASSWORD}@postgres:5432/litellm
+    volumes:
+      - ./infra/litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4000:4000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4000/health/liveliness')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://tutor:${POSTGRES_PASSWORD}@postgres:5432/tutor
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: dev
+      DATABASE_URL: postgresql+asyncpg://tutor:${POSTGRES_PASSWORD}@postgres:5432/tutor
+      LLM_BASE_URL: http://litellm:4000
+      LLM_API_KEY: ${LITELLM_MASTER_KEY}
+      LLM_MODEL: tutor
+      API_TOKEN: ${TUTOR_API_TOKEN:?TUTOR_API_TOKEN fehlt in .env, bitte "make env" ausführen}
+      CORS_ORIGINS: '["http://localhost:5173"]'   # Vite-Dev-Server des Frontends
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      litellm:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+volumes:
+  pgdata:

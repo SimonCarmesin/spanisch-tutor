@@ -1,0 +1,33 @@
+# Geheimnisse und lokale Konfiguration
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Editor und System
+.idea/
+.vscode/
+.DS_Store
+
+# Lokale Daten
+*.sqlite3
+.data/
+
+# Dateien, die ich nicht löschen durfte
+_to_delete/
